@@ -1,7 +1,7 @@
 # Mini-CLIP: Contrastive Image–Text Retrieval in PyTorch
 
 ## Overview
-This project implements a lightweight CLIP-style Vision-Language Model
+This project implements a lightweight CLIP-style Vision-Language Model (VLM)
 trained from scratch for image–text retrieval. The model learns a joint
 embedding space for images and captions using a contrastive InfoNCE loss.
 
