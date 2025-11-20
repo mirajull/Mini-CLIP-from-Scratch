@@ -1,5 +1,4 @@
 import argparse
-import os
 
 import torch
 from torch.utils.data import DataLoader
@@ -45,11 +44,18 @@ def train(cfg):
     )
 
     # Model
+    vision_cfg = cfg["model"].get("vision_encoder", {})
+    text_cfg = cfg["model"].get("text_encoder", {})
     model = CLIPModel(
         vocab_size=dataset.vocab_size,
+        context_length=dataset.max_length,
         embed_dim=cfg["model"]["embed_dim"],
         temperature=cfg["model"]["temperature"],
+        vision_cfg=vision_cfg,
+        text_cfg=text_cfg,
+        logit_scale_max=cfg["model"].get("logit_scale_max", 100.0),
     )
+    hard_neg_cfg = cfg["train"].get("hard_negative", {})
     model.to(device)
 
     # Optimizer
@@ -77,7 +83,7 @@ def train(cfg):
 
             with torch.cuda.amp.autocast(enabled=use_amp):
                 logits_i, logits_t = model(images, tokens, lengths)
-                loss = clip_loss(logits_i, logits_t)
+                loss = clip_loss(logits_i, logits_t, hard_neg_cfg)
 
             scaler.scale(loss).backward()
             if cfg["train"]["grad_clip"] is not None:

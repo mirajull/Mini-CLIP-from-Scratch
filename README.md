@@ -7,12 +7,12 @@ This project demonstrates how contrastive multimodal learning can align images a
 
 ## 🚀 Highlights
 
-- **ResNet-18** visual encoder + **BiGRU** text encoder  
-- **Symmetric InfoNCE contrastive loss**  
+- **ViT-B/16** visual encoder + **Transformer** text encoder  
+- **Symmetric InfoNCE** contrastive loss with **hard negative mining**  
 - **Mixed-precision training** (optional)  
 - **Full COCO support** (train/val splits)  
+- **FAISS-powered retrieval evaluation** for instant Recall@K  
 - **Efficient batching + padded text sequences**  
-- **Recall@K metrics for retrieval evaluation**  
 - Tiny toy dataset for instant debugging  
 - 100% PyTorch — no external CLIP dependencies
 
@@ -21,25 +21,28 @@ This project demonstrates how contrastive multimodal learning can align images a
 # 🧠 Model Overview
 
 ### 🖼 Image Encoder
-- ResNet-18 backbone (pretrained on ImageNet)  
-- 512 → 256 projection head  
-- L2-normalized embeddings  
+- ViT-B/16 backbone (ImageNet-pretrained) with frozen classification head  
+- Linear projection into the shared embedding space  
+- L2-normalized embeddings for cosine similarity  
 
 ### ✍️ Text Encoder
-- Simple whitespace tokenizer + custom vocabulary  
-- Embedding layer  
-- Bi-Directional GRU  
-- 1024 → 256 projection  
-- L2-normalized embeddings  
+- Whitespace tokenizer + learnable vocabulary  
+- Learned token + positional embeddings  
+- Multi-layer Transformer encoder (GELU + dropout)  
+- `[BOS]` state projected into the shared embedding space and normalized  
 
 ### 🔗 Contrastive Loss (InfoNCE)
 For a batch size *N*:
 
 - Compute similarity matrix **S = image_emb @ text_embᵀ**
-- Apply cross-entropy loss in both directions:
-  - image → text  
-  - text → image  
-- Total loss = average of both
+- Apply cross-entropy loss in both directions (image→text & text→image)  
+- Add a **margin-based hard negative term** that selects the top-*k* most confusing mismatched pairs every batch  
+- Total loss = symmetric InfoNCE + weighted hard-negative penalty
+
+### ⚡ Retrieval with FAISS
+- Encoded image/text features are indexed with `faiss.IndexFlatIP`
+- Instant **Image→Text** and **Text→Image** Recall@K using cosine similarity search  
+- Requires `faiss-cpu` (installed via `pip install -r requirement.txt`)
 
 ---
 

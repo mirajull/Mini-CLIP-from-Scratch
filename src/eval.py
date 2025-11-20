@@ -1,12 +1,21 @@
 # src/eval.py
 
 import argparse
+
+import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from .model import CLIPModel
+try:
+    import faiss
+except ImportError as exc:  # pragma: no cover - import guard
+    raise ImportError(
+        "FAISS is required for evaluation. Install faiss-cpu via pip."  # noqa: EM101
+    ) from exc
+
 from .dataset import ImageTextDataset
+from .model import CLIPModel
 from .utils import load_config
 
 
@@ -23,22 +32,9 @@ def parse_args():
     return parser.parse_args()
 
 
-def compute_recall_at_k(sim_matrix, k):
-    """
-    sim_matrix: (N, N) image-to-text similarity (higher is better)
-    assumes diagonal is the correct pair.
-    """
-    n = sim_matrix.size(0)
-    ranks = []
-    for i in range(n):
-        scores = sim_matrix[i]
-        sorted_indices = torch.argsort(scores, descending=True)
-        rank = (sorted_indices == i).nonzero(as_tuple=False).item()
-        ranks.append(rank)
-
-    ranks = torch.tensor(ranks)
-    recall = (ranks < k).float().mean().item()
-    return recall
+def recall_from_neighbors(neighbors: np.ndarray, k: int) -> float:
+    hits = sum(1 for idx, row in enumerate(neighbors) if idx in row[:k])
+    return hits / neighbors.shape[0]
 
 
 def evaluate(cfg, ckpt_path):
@@ -57,10 +53,16 @@ def evaluate(cfg, ckpt_path):
         collate_fn=ImageTextDataset.collate_fn,
     )
 
+    vision_cfg = cfg["model"].get("vision_encoder", {})
+    text_cfg = cfg["model"].get("text_encoder", {})
     model = CLIPModel(
         vocab_size=dataset.vocab_size,
+        context_length=dataset.max_length,
         embed_dim=cfg["model"]["embed_dim"],
         temperature=cfg["model"]["temperature"],
+        vision_cfg=vision_cfg,
+        text_cfg=text_cfg,
+        logit_scale_max=cfg["model"].get("logit_scale_max", 100.0),
     )
     ckpt = torch.load(ckpt_path, map_location=device)
     model.load_state_dict(ckpt["model_state"])
@@ -82,16 +84,28 @@ def evaluate(cfg, ckpt_path):
             all_img_embs.append(img_emb.cpu())
             all_txt_embs.append(txt_emb.cpu())
 
-    img_embs = torch.cat(all_img_embs, dim=0)
-    txt_embs = torch.cat(all_txt_embs, dim=0)
+    img_embs = torch.cat(all_img_embs, dim=0).cpu()
+    txt_embs = torch.cat(all_txt_embs, dim=0).cpu()
 
-    sim_matrix = img_embs @ txt_embs.t()  # cosine, since normalized
+    img_np = img_embs.numpy().astype("float32")
+    txt_np = txt_embs.numpy().astype("float32")
 
-    for k in [1, 5, 10]:
-        r_at_k = compute_recall_at_k(sim_matrix, k)
-        print(f"Image->Text Recall@{k}: {r_at_k * 100:.2f}%")
+    recall_ks = cfg.get("eval", {}).get("recall_k", [1, 5, 10])
+    max_k = max(recall_ks)
 
-    # You can also evaluate text->image by transposing sim_matrix if you want.
+    text_index = faiss.IndexFlatIP(txt_np.shape[1])
+    text_index.add(txt_np)
+    _, img_to_text = text_index.search(img_np, max_k)
+
+    image_index = faiss.IndexFlatIP(img_np.shape[1])
+    image_index.add(img_np)
+    _, text_to_image = image_index.search(txt_np, max_k)
+
+    for k in recall_ks:
+        r_img_text = recall_from_neighbors(img_to_text, k)
+        r_text_img = recall_from_neighbors(text_to_image, k)
+        print(f"Image->Text Recall@{k}: {r_img_text * 100:.2f}%")
+        print(f"Text->Image Recall@{k}: {r_text_img * 100:.2f}%")
 
 
 if __name__ == "__main__":

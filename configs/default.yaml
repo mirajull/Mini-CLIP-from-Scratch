@@ -6,6 +6,16 @@ data:
 model:
   embed_dim: 256
   temperature: 0.07
+  logit_scale_max: 100.0
+  vision_encoder:
+    pretrained: true
+    freeze_backbone: false
+  text_encoder:
+    hidden_dim: 512
+    num_layers: 4
+    num_heads: 8
+    mlp_dim: 2048
+    dropout: 0.1
 
 train:
   batch_size: 128
@@ -14,9 +24,17 @@ train:
   num_workers: 4
   grad_clip: 1.0
   amp: true          # automatic mixed precision
+  hard_negative:
+    enabled: true
+    top_k: 5
+    margin: 0.1
+    weight: 0.1
 
 logging:
   print_every: 50
   ckpt_dir: "checkpoints"
   ckpt_interval: 1
   seed: 42
+
+eval:
+  recall_k: [1, 5, 10]
