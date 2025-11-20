@@ -1,0 +1,26 @@
+[
+  {
+    "image": "red_square.png",
+    "caption": "a red square on a white background"
+  },
+  {
+    "image": "green_square.png",
+    "caption": "a green square on a white background"
+  },
+  {
+    "image": "blue_circle.png",
+    "caption": "a blue circle on a white background"
+  },
+  {
+    "image": "yellow_circle.png",
+    "caption": "a yellow circle on a white background"
+  },
+  {
+    "image": "red_circle.png",
+    "caption": "a red circle on a white background"
+  },
+  {
+    "image": "blue_square.png",
+    "caption": "a blue square on a white background"
+  }
+]
