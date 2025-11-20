@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchvision.models import resnet18
 
+
 class ImageEncoder(nn.Module):
     def __init__(self, embed_dim: int = 256):
         super().__init__()
@@ -16,6 +17,7 @@ class ImageEncoder(nn.Module):
         feats = feats.view(feats.size(0), -1)
         out = self.fc(feats)
         return F.normalize(out, dim=-1)
+
 
 class TextEncoder(nn.Module):
     def __init__(self, vocab_size: int, embed_dim: int = 256, hidden_dim: int = 512):
@@ -35,6 +37,7 @@ class TextEncoder(nn.Module):
         out = self.fc(h)
         return F.normalize(out, dim=-1)
 
+
 class CLIPModel(nn.Module):
     def __init__(self, vocab_size: int, embed_dim: int = 256, temperature: float = 0.07):
         super().__init__()
@@ -50,6 +53,7 @@ class CLIPModel(nn.Module):
         logits_per_image = logit_scale * img_emb @ txt_emb.t()
         logits_per_text = logits_per_image.t()
         return logits_per_image, logits_per_text
+
 
 def clip_loss(logits_per_image, logits_per_text):
     batch_size = logits_per_image.size(0)

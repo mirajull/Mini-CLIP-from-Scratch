@@ -1,0 +1,22 @@
+data:
+  annotations: "data/train_captions.json"   # list[{"image": "xxx.jpg", "caption": "..."}, ...]
+  img_root: "data/images"
+  max_length: 32
+
+model:
+  embed_dim: 256
+  temperature: 0.07
+
+train:
+  batch_size: 128
+  lr: 1.0e-4
+  epochs: 10
+  num_workers: 4
+  grad_clip: 1.0
+  amp: true          # automatic mixed precision
+
+logging:
+  print_every: 50
+  ckpt_dir: "checkpoints"
+  ckpt_interval: 1
+  seed: 42
